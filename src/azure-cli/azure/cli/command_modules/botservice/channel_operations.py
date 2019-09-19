@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
-from azure.mgmt.botservice.models import BotChannel
+from azure.mgmt.botservice.models import BotChannel, DirectLineChannelProperties, DirectLineChannel
 
 
 def create_channel(client, channel, channel_name, resource_group_name, resource_name):
@@ -17,6 +17,54 @@ def create_channel(client, channel, channel_name, resource_group_name, resource_
         channel_name=channel_name,
         parameters=botChannel
     )
+
+from knack.log import get_logger
+
+logger = get_logger(__name__)
+
+def update_channel(client, channel, channel_name, resource_group_name, resource_name):
+    botChannel = BotChannel(
+        location='global',
+        properties=channel
+    )
+
+    bot_channel_data = client.get(
+        resource_group_name,
+        resource_name,
+        channel_name)
+    sites = bot_channel_data.properties.properties.sites
+
+    for site in sites:
+        if site.site_name == botChannel.properties.properties.sites[0].site_name:
+            logger.error('Found the correct site_name!')
+            botChannel.properties.properties.sites[0].site_id = site.site_id
+    
+    # logger.error('\nHello World')
+    # logger.error(vars(channel.properties.sites[0]))
+    # logger.error(botChannel.properties.properties.sites)
+    return client.update(
+        resource_group_name=resource_group_name,
+        resource_name=resource_name,
+        channel_name='DirectLineChannel',
+        properties=botChannel
+    )
+
+def directline_update(client, resource_group_name, resource_name, is_disabled=None,
+                      is_v1_disabled=None, is_v3_disabled=None, site_name='Default Site', is_secure_site_enabled=False, trusted_origins=[]):
+    from azure.mgmt.botservice.models import DirectLineChannel, DirectLineChannelProperties, DirectLineSite
+    channel = DirectLineChannel(
+        properties=DirectLineChannelProperties(
+            sites=[DirectLineSite(
+                site_name=site_name,
+                is_enabled=not is_disabled,
+                is_v1_enabled=not is_v1_disabled,
+                is_v3_enabled=not is_v3_disabled,
+                is_secure_site_enabled=is_secure_site_enabled,
+                trusted_origins=trusted_origins
+            )]
+        )
+    )
+    return update_channel(client, channel, 'DirectLineChannel', resource_group_name, resource_name)
 
 
 def facebook_create(client, resource_group_name, resource_name, page_id, app_id, app_secret, access_token, is_disabled=None):  # pylint: disable=line-too-long
@@ -91,7 +139,7 @@ def kik_create(client, resource_group_name, resource_name, user_name, api_key, i
 
 
 def directline_create(client, resource_group_name, resource_name, is_disabled=None,
-                      is_v1_disabled=None, is_v3_disabled=None, site_name='Default Site'):
+                      is_v1_disabled=None, is_v3_disabled=None, site_name='Default Site', is_secure_site_enabled=False, trusted_origins=[]):
     from azure.mgmt.botservice.models import DirectLineChannel, DirectLineChannelProperties, DirectLineSite
     channel = DirectLineChannel(
         properties=DirectLineChannelProperties(
@@ -99,11 +147,30 @@ def directline_create(client, resource_group_name, resource_name, is_disabled=No
                 site_name=site_name,
                 is_enabled=not is_disabled,
                 is_v1_enabled=not is_v1_disabled,
-                is_v3_enabled=not is_v3_disabled
+                is_v3_enabled=not is_v3_disabled,
+                is_secure_site_enabled=is_secure_site_enabled,
+                trusted_origins=trusted_origins
             )]
         )
     )
     return create_channel(client, channel, 'DirectLineChannel', resource_group_name, resource_name)
+
+# def directline_update(client, resource_group_name, resource_name, is_disabled=None,
+#                       is_v1_disabled=None, is_v3_disabled=None, site_name='Default Site', is_secure_site_enabled=False, trusted_origins=[]):
+#     from azure.mgmt.botservice.models import DirectLineChannel, DirectLineChannelProperties, DirectLineSite
+#     channel = DirectLineChannel(
+#         properties=DirectLineChannelProperties(
+#             sites=[DirectLineSite(
+#                 site_name=site_name,
+#                 is_enabled=not is_disabled,
+#                 is_v1_enabled=not is_v1_disabled,
+#                 is_v3_enabled=not is_v3_disabled,
+#                 is_secure_site_enabled=is_secure_site_enabled,
+#                 trusted_origins=trusted_origins
+#             )]
+#         )
+#     )
+#     return update_channel(client, channel, 'DirectLineChannel', resource_group_name, resource_name)
 
 
 def telegram_create(client, resource_group_name, resource_name, access_token, is_disabled=None, is_validated=None):
